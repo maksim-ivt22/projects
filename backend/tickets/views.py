@@ -1,6 +1,8 @@
 from django.contrib.gis.db.models.functions import Distance
 from django.contrib.gis.measure import D
+from django.contrib.gis.geos import Point
 from django.utils.timezone import now
+from django.utils.dateparse import parse_datetime, parse_date
 
 from rest_framework import permissions, generics, status
 from rest_framework import viewsets
@@ -41,11 +43,71 @@ class TicketListView(generics.ListCreateAPIView):
         """
 
         user = self.request.user
+        base_queryset = Ticket.objects.all().order_by("-created_at")
         if user and user.is_authenticated:
             if user.is_staff or user.is_superuser:
-                return Ticket.objects.all().order_by("-created_at")
-            return Ticket.objects.filter(user=user).order_by("-created_at")
+                queryset = base_queryset
+            else:
+                queryset = base_queryset.filter(user=user)
+            return self.apply_filters(queryset)
         return Ticket.objects.none()
+
+    def apply_filters(self, queryset):
+        params = self.request.query_params
+
+        status_value = params.get("status")
+        if status_value:
+            queryset = queryset.filter(status=status_value)
+
+        type_id = params.get("type_id")
+        if type_id:
+            queryset = queryset.filter(type_id=type_id)
+
+        category_id = params.get("category_id")
+        if category_id:
+            queryset = queryset.filter(type__category_id=category_id)
+
+        date_from = params.get("date_from")
+        if date_from:
+            parsed_from = parse_datetime(date_from)
+            if parsed_from is None:
+                parsed_date = parse_date(date_from)
+                if parsed_date:
+                    queryset = queryset.filter(created_at__date__gte=parsed_date)
+            else:
+                queryset = queryset.filter(created_at__gte=parsed_from)
+
+        date_to = params.get("date_to")
+        if date_to:
+            parsed_to = parse_datetime(date_to)
+            if parsed_to is None:
+                parsed_date = parse_date(date_to)
+                if parsed_date:
+                    queryset = queryset.filter(created_at__date__lte=parsed_date)
+            else:
+                queryset = queryset.filter(created_at__lte=parsed_to)
+
+        latitude = params.get("latitude")
+        longitude = params.get("longitude")
+        radius_m = params.get("radius_m")
+        if latitude and longitude and radius_m:
+            try:
+                center = Point(float(longitude), float(latitude), srid=4326)
+                queryset = queryset.filter(location__distance_lte=(center, D(m=float(radius_m))))
+            except (TypeError, ValueError):
+                pass
+
+        ordering = params.get("ordering", "-created_at")
+        allowed_ordering = {
+            "created_at",
+            "-created_at",
+            "status",
+            "-status",
+        }
+        if ordering in allowed_ordering:
+            queryset = queryset.order_by(ordering)
+
+        return queryset
 
     def perform_create(self, serializer):
         location = serializer.validated_data.get("location")
