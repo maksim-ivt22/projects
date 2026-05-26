@@ -120,3 +120,22 @@ class Ticket(models.Model):
     @property
     def longitude(self):
         return self.location.x
+
+
+class TicketStatusHistory(models.Model):
+    ticket = models.ForeignKey(
+        Ticket,
+        on_delete=models.CASCADE,
+        related_name="status_history",
+        verbose_name="Заявка",
+    )
+    from_status = models.CharField(max_length=20, choices=Ticket.STATUS_CHOICES)
+    to_status = models.CharField(max_length=20, choices=Ticket.STATUS_CHOICES)
+    changed_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name="+")
+    comment = models.TextField(blank=True, verbose_name="Комментарий оператора")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "История статуса заявки"
+        verbose_name_plural = "История статусов заявок"
+        ordering = ["-created_at"]
