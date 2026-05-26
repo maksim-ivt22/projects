@@ -104,13 +104,12 @@ Swagger:
 
 ## 6. Локальный запуск
 
-### Backend
+### Backend (рекомендуется полностью в Docker)
 ```bash
 cd backend
 cp .env.example .env
-docker compose -f docker-compose-dev.yaml up -d
-python manage.py migrate
-python manage.py runserver
+docker compose -f docker-compose-dev-full.yaml up --build -d
+docker compose -f docker-compose-dev-full.yaml exec backend python manage.py migrate
 ```
 
 ### Frontend
@@ -145,4 +144,3 @@ frontend/
 - описание workflow обработки заявок;
 - тестирование (unit, интеграционное, сценарное);
 - безопасность (JWT, разграничение прав, валидация).
-
