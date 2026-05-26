@@ -3,6 +3,7 @@ from django_filters.rest_framework import DjangoFilterBackend
 from .models import NewsTag, Article
 from .serializers import NewsTagSerializer, ArticleSerializer
 from django.contrib.auth import get_user_model
+from .permissions import IsStaffByRole
 
 User = get_user_model()
 
@@ -10,9 +11,13 @@ User = get_user_model()
 class NewsTagViewSet(viewsets.ModelViewSet):
     queryset = NewsTag.objects.all()
     serializer_class = NewsTagSerializer
-    permission_classes = [permissions.IsAuthenticatedOrReadOnly]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
     search_fields = ["title"]
+
+    def get_permissions(self):
+        if self.request.method in permissions.SAFE_METHODS:
+            return [permissions.AllowAny()]
+        return [permissions.IsAuthenticated(), IsStaffByRole()]
 
 
 class ArticleViewSet(viewsets.ModelViewSet):
@@ -29,7 +34,7 @@ class ArticleViewSet(viewsets.ModelViewSet):
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
-            return [permissions.IsAuthenticated()]
+            return [permissions.IsAuthenticated(), IsStaffByRole()]
         return [permissions.AllowAny()]
 
     def perform_create(self, serializer):

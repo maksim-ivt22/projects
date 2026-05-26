@@ -11,7 +11,7 @@ from .serializers import (
     TicketTypeWithCategorySerializer,
     TicketCategoryDetailsSerializer,
 )
-from .permissions import OwnTicketPermission
+from .permissions import IsOwnerOrStaffByRole, IsStaffByRole
 from .models import Ticket, TicketGroup, TicketCategory, TicketType
 
 
@@ -33,6 +33,8 @@ class TicketListView(generics.ListCreateAPIView):
 
         user = self.request.user
         if user and user.is_authenticated:
+            if user.is_staff or user.is_superuser:
+                return Ticket.objects.all().order_by("-created_at")
             return Ticket.objects.filter(user=user).order_by("-created_at")
         return Ticket.objects.none()
 
@@ -63,7 +65,7 @@ class TicketDetailView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = TicketSerializer
     permission_classes = [
         permissions.IsAuthenticated,
-        OwnTicketPermission,
+        IsOwnerOrStaffByRole,
     ]
     queryset = Ticket.objects.all()
 
@@ -72,12 +74,27 @@ class TicketTypeViewSet(viewsets.ModelViewSet):
     queryset = TicketType.objects.all().order_by("title")
     serializer_class = TicketTypeWithCategorySerializer
 
+    def get_permissions(self):
+        if self.request.method in permissions.SAFE_METHODS:
+            return [permissions.AllowAny()]
+        return [permissions.IsAuthenticated(), IsStaffByRole()]
+
 
 class TicketCategoryListView(generics.ListCreateAPIView):
     queryset = TicketCategory.objects.all().order_by("title")
     serializer_class = TicketCategorySerializer
 
+    def get_permissions(self):
+        if self.request.method in permissions.SAFE_METHODS:
+            return [permissions.AllowAny()]
+        return [permissions.IsAuthenticated(), IsStaffByRole()]
+
 
 class TicketCategoryDetailView(generics.RetrieveUpdateDestroyAPIView):
     queryset = TicketCategory.objects.all()
     serializer_class = TicketCategoryDetailsSerializer
+
+    def get_permissions(self):
+        if self.request.method in permissions.SAFE_METHODS:
+            return [permissions.AllowAny()]
+        return [permissions.IsAuthenticated(), IsStaffByRole()]
