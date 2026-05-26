@@ -24,7 +24,7 @@ class TicketsService {
     }
 
     const ticket: Ticket = (
-      await api.post("tickets/", input, {
+      await api.post("tickets/", formData, {
         headers: {
           "Content-Type": "multipart/form-data",
         },
