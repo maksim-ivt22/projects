@@ -44,6 +44,8 @@ const CreateTicketPage = () => {
   const [currentCategory, setCurrentCategory] = useState("");
   const [currentType, setCurrentType] = useState("");
   const [types, setTypes] = useState<TicketType[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const fetchCategories = async () => {
     setCategories((await ticketsService.getCategories()).results);
@@ -90,15 +92,25 @@ const CreateTicketPage = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const data: CreateTicketInput = {
-      ...baseFormData,
-      latitude: Number(baseFormData.latitude),
-      longitude: Number(baseFormData.longitude),
-      typeId: types.find((type) => type.title === currentType)!.id,
-      image: selectedFile || undefined,
-    };
-    const newTicket = await ticketsService.createTicket(data);
-    router.replace(`/requests/${newTicket.id}`);
+    setSubmitError(null);
+    setIsSubmitting(true);
+    try {
+      const data: CreateTicketInput = {
+        ...baseFormData,
+        latitude: Number(baseFormData.latitude),
+        longitude: Number(baseFormData.longitude),
+        typeId: types.find((type) => type.title === currentType)!.id,
+        image: selectedFile || undefined,
+      };
+      const newTicket = await ticketsService.createTicket(data);
+      router.replace(`/requests/${newTicket.id}`);
+    } catch {
+      setSubmitError(
+        "Не удалось создать заявку. Проверьте введённые данные и попробуйте ещё раз."
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -291,7 +303,18 @@ const CreateTicketPage = () => {
           </PopoverContent>
         </Popover>
 
-        <Button className="w-full mt-5">Создать</Button>
+        {submitError && (
+          <p className="text-sm text-destructive" role="alert">
+            {submitError}
+          </p>
+        )}
+
+        <Button
+          className="w-full mt-5"
+          disabled={isSubmitting || currentCategory === "" || currentType === ""}
+        >
+          {isSubmitting ? "Создание..." : "Создать"}
+        </Button>
       </form>
     </>
   );
