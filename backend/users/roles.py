@@ -1,0 +1,5 @@
+ROLE_CITIZEN = "citizen"
+ROLE_OPERATOR = "operator"
+ROLE_ADMIN = "admin"
+
+STAFF_ROLES = {ROLE_OPERATOR, ROLE_ADMIN}
