@@ -2,22 +2,31 @@ from django.contrib.gis.db.models.functions import Distance
 from django.contrib.gis.measure import D
 from django.utils.timezone import now
 
-from rest_framework import permissions, generics
+from rest_framework import permissions, generics, status
 from rest_framework import viewsets
+from rest_framework.response import Response
 
 from .serializers import (
     TicketSerializer,
     TicketCategorySerializer,
     TicketTypeWithCategorySerializer,
     TicketCategoryDetailsSerializer,
+    TicketStatusUpdateSerializer,
 )
 from .permissions import IsOwnerOrStaffByRole, IsStaffByRole
-from .models import Ticket, TicketGroup, TicketCategory, TicketType
+from .models import Ticket, TicketGroup, TicketCategory, TicketType, TicketStatusHistory
 
 
 import logging
 
 logger = logging.getLogger(__name__)
+
+ALLOWED_STATUS_TRANSITIONS = {
+    Ticket.STATUS_PENDING_REVIEW: {Ticket.STATUS_IN_PROGRESS, Ticket.STATUS_REJECTED},
+    Ticket.STATUS_IN_PROGRESS: {Ticket.STATUS_COMPLETED, Ticket.STATUS_REJECTED},
+    Ticket.STATUS_COMPLETED: set(),
+    Ticket.STATUS_REJECTED: set(),
+}
 
 
 class TicketListView(generics.ListCreateAPIView):
@@ -68,6 +77,49 @@ class TicketDetailView(generics.RetrieveUpdateDestroyAPIView):
         IsOwnerOrStaffByRole,
     ]
     queryset = Ticket.objects.all()
+
+
+class TicketStatusUpdateView(generics.GenericAPIView):
+    serializer_class = TicketStatusUpdateSerializer
+    permission_classes = [permissions.IsAuthenticated, IsStaffByRole]
+    queryset = Ticket.objects.all()
+
+    def post(self, request, *args, **kwargs):
+        ticket = self.get_object()
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        target_status = serializer.validated_data["status"]
+        comment = serializer.validated_data.get("comment", "")
+        current_status = ticket.status
+
+        if target_status == current_status:
+            return Response(
+                {"detail": "Заявка уже находится в указанном статусе."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        allowed_next = ALLOWED_STATUS_TRANSITIONS.get(current_status, set())
+        if target_status not in allowed_next:
+            return Response(
+                {
+                    "detail": (
+                        f"Недопустимый переход: {current_status} -> {target_status}."
+                    )
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        TicketStatusHistory.objects.create(
+            ticket=ticket,
+            from_status=current_status,
+            to_status=target_status,
+            changed_by=request.user,
+            comment=comment,
+        )
+        ticket.status = target_status
+        ticket.save(update_fields=["status"])
+        return Response(TicketSerializer(ticket).data, status=status.HTTP_200_OK)
 
 
 class TicketTypeViewSet(viewsets.ModelViewSet):

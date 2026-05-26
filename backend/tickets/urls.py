@@ -8,6 +8,7 @@ from .views import (
     TicketTypeViewSet,
     TicketCategoryDetailView,
     TicketCategoryListView,
+    TicketStatusUpdateView,
 )
 
 router = SimpleRouter()
@@ -18,6 +19,7 @@ app_name = "tickets"
 urlpatterns = [
     path("", TicketListView.as_view(), name="list"),
     path("<int:pk>/", TicketDetailView.as_view(), name="detail"),
+    path("<int:pk>/status/", TicketStatusUpdateView.as_view(), name="update-status"),
 ]
 
 ticket_category_urlpatterns = [
