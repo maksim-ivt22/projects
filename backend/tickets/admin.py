@@ -4,7 +4,7 @@ from django.contrib import admin
 from unfold.admin import ModelAdmin, TabularInline
 # from unfold.contrib.forms.widgets import WysiwygWidget
 
-from .models import Ticket, TicketCategory, TicketType, TicketGroup
+from .models import Ticket, TicketCategory, TicketType, TicketGroup, TicketStatusHistory
 from .forms import TicketForm
 
 
@@ -45,6 +45,13 @@ class TicketInline(TabularInline):
     extra = 0
 
 
+class TicketStatusHistoryInline(TabularInline):
+    model = TicketStatusHistory
+    extra = 0
+    readonly_fields = ("from_status", "to_status", "changed_by", "comment", "created_at")
+    can_delete = False
+
+
 @admin.register(TicketGroup)
 class TicketGroupAdmin(ModelAdmin):
     list_display = ["id", "title", "priority", "created_on", "last_created_on"]
@@ -53,6 +60,12 @@ class TicketGroupAdmin(ModelAdmin):
         TicketInline,
     ]
     pass
+
+
+@admin.register(TicketStatusHistory)
+class TicketStatusHistoryAdmin(ModelAdmin):
+    list_display = ["id", "ticket", "from_status", "to_status", "changed_by", "created_at"]
+    search_fields = ["id", "ticket__title", "changed_by__email"]
 
 
 class TicketTypeInline(TabularInline):
