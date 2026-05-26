@@ -119,6 +119,15 @@ npm install
 npm run dev
 ```
 
+### Frontend env
+```bash
+cd frontend
+cp .env.example .env.local
+```
+
+Значение должно указывать на backend, доступный из браузера (обычно `http://localhost:8000/`).
+
+
 ## 7. Структура репозитория
 
 ```text
@@ -144,3 +153,22 @@ frontend/
 - описание workflow обработки заявок;
 - тестирование (unit, интеграционное, сценарное);
 - безопасность (JWT, разграничение прав, валидация).
+
+
+## 9. Проверка auth вручную (curl)
+
+Регистрация использует endpoint `POST /auth/register/`.
+
+```bash
+curl -X POST http://localhost:8000/auth/register/ \
+  -H "Content-Type: application/json" \
+  -d "{\"email\":\"test@example.com\",\"password\":\"StrongPass123\",\"full_name\":\"Test User\"}"
+```
+
+Проверка логина:
+
+```bash
+curl -X POST http://localhost:8000/auth/token/ \
+  -H "Content-Type: application/json" \
+  -d "{\"email\":\"test@example.com\",\"password\":\"StrongPass123\"}"
+```

@@ -12,6 +12,7 @@ import authService from "../../services/auth-service";
 import { LoginInput } from "../../lib/types/auth/login-input";
 import { RegisterInput } from "../../lib/types/auth/register-input";
 import { AuthContext, AuthContextType } from "../../context/auth-context";
+import { getApiErrorMessage } from "../../lib/api/error-utils";
 import { getAccessToken, setAccessToken } from "../../lib/token-manager";
 import {
   getStoredRefreshToken,
@@ -97,9 +98,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         await fetchUser();
       } catch (err: any) {
         console.error("Login failed:", err);
-        const errorMessage =
-          err.response?.data?.message || err.message || "Login failed.";
-        setError(errorMessage);
+        setError(getApiErrorMessage(err));
         setAccessToken(null);
         removeStoredRefreshToken();
         setUser(null);
@@ -133,9 +132,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         return registeredUser;
       } catch (err: any) {
         console.error("Registration failed:", err);
-        const errorMessage =
-          err.response?.data?.message || err.message || "Registration failed.";
-        setError(errorMessage);
+        setError(getApiErrorMessage(err));
         setIsLoading(false);
         throw err;
       }
