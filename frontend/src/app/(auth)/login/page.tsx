@@ -6,6 +6,7 @@ import { Button } from "../../../components/ui/button";
 import { Input } from "../../../components/input";
 import { useAuth } from "../../../context/auth-context";
 import { useState } from "react";
+import { getApiErrorMessage } from "@/lib/api/error-utils";
 
 export default function Login() {
   const router = useRouter();
@@ -14,6 +15,8 @@ export default function Login() {
     email: "",
     password: "",
   });
+  const [error, setError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   return (
     <div className="flex flex-col h-full max-w-[412px] mx-auto bg-white p-6">
@@ -41,6 +44,7 @@ export default function Login() {
       </div>
 
       <form className="space-y-4">
+        {error && <div className="mb-2 p-2 bg-red-100 text-destructive text-sm rounded">{error}</div>}
         <label className="block text-sm text-gray-600 mb-1">
           Электронная почта
         </label>
@@ -59,12 +63,22 @@ export default function Login() {
         <Button
           className="w-full"
           type="button"
-          onClick={() => {
-            login(formData);
-            router.push("/dashboard");
+          onClick={async () => {
+            setIsSubmitting(true);
+            setError("");
+
+            try {
+              await login(formData);
+              router.push("/dashboard");
+            } catch (err) {
+              setError(getApiErrorMessage(err));
+            } finally {
+              setIsSubmitting(false);
+            }
           }}
+          disabled={isSubmitting}
         >
-          Войти
+          {isSubmitting ? "Вход..." : "Войти"}
         </Button>
       </form>
 

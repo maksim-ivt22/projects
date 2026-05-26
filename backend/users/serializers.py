@@ -3,6 +3,7 @@ from django.contrib.auth.password_validation import validate_password
 from rest_framework import serializers
 
 from .models import User
+from .roles import ROLE_CITIZEN
 
 
 class UserRegistrationSerializer(serializers.ModelSerializer):
@@ -45,6 +46,8 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
             **validated_data,  # Includes email, full_name, etc.
             password=password,
         )
+        citizen_group, _ = Group.objects.get_or_create(name=ROLE_CITIZEN)
+        user.groups.add(citizen_group)
         # create_user already saves the user and hashes the password.
         return user
 

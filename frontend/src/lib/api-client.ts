@@ -13,9 +13,19 @@ const api = axios.create({
   timeout: 10000,
 });
 
+if (process.env.NODE_ENV !== "production") {
+  console.info("[api] baseURL:", API_BASE_URL);
+}
+
 api.interceptors.request.use(
   (config) => {
     const token = getAccessToken();
+
+    if (process.env.NODE_ENV !== "production") {
+      const method = (config.method || "GET").toUpperCase();
+      const requestUrl = `${config.baseURL || ""}${config.url || ""}`;
+      console.info(`[api] ${method} ${requestUrl}`);
+    }
     if (token && config.headers) {
       config.headers["Authorization"] = `Bearer ${token}`;
     }
