@@ -1,30 +1,28 @@
 FROM python:3.13.3-alpine3.21
 
-RUN mkdir /app
-
 WORKDIR /app
 
-# GeoDjango dependencies
-RUN apk add --no-cache binutils proj-dev gdal gdal-dev geos-dev
-
-ENV PYTHONDONTWRITEBYTECODE=1
-ENV PYTHONUNBUFFERED=1 
-ENV DEBUG=False
-
-# Build dependencies
+# System dependencies for GeoDjango/PostGIS and building Python packages
 RUN apk add --no-cache \
+    binutils \
+    proj-dev \
+    gdal \
+    gdal-dev \
+    geos-dev \
     build-base \
     postgresql-dev \
     python3-dev
 
-RUN pip install --upgrade pip 
-COPY requirements.txt  /app/
-RUN pip install --no-cache-dir -r requirements.txt
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
+COPY requirements.txt /app/
+RUN pip install --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt && \
+    pip install --no-cache-dir gunicorn
 
 COPY . /app/
 
-RUN python manage.py collectstatic --noinput
-
 EXPOSE 8000
 
-CMD ["uvicorn", "backend.asgi:application", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["gunicorn", "backend.wsgi:application", "--bind", "0.0.0.0:8000", "--workers", "3", "--timeout", "120"]

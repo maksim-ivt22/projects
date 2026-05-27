@@ -1,200 +1,297 @@
-# Sirius Leto 2025 — Документация проекта
+# Sirius Leto 2025 — деплой на Timeweb Cloud (Production)
 
-Этот репозиторий содержит fullstack-систему для приема и обработки заявок жителей с геопривязкой, фотофиксацией, статусами обработки и новостным модулем.
+Ниже — подробная, практическая инструкция: от создания сервера в панели Timeweb Cloud до запуска проекта с HTTPS.
 
-## 1. Архитектура
+## Короткий план
+1. Создать облачный сервер в Timeweb Cloud.
+2. Подключить домен к IP сервера.
+3. Установить Docker/Compose.
+4. Подготовить `.env.prod`.
+5. Запустить `docker-compose.prod.yml`.
+6. Выполнить миграции и `collectstatic`.
+7. Выпустить SSL сертификат Let's Encrypt.
+8. Проверить сайт, API и админку.
 
-Система состоит из двух основных частей:
+---
 
-- `frontend/` — клиентское приложение на Next.js (TypeScript).
-- `backend/` — REST API на Django + DRF + PostGIS.
+## Production-файлы в репозитории
+- `docker-compose.prod.yml`
+- `deploy/nginx/default.conf`
+- `.env.prod.example`
+- `frontend/Dockerfile`
+- `backend/Dockerfile`
 
-Поток данных:
-1. Пользователь авторизуется через JWT (`/auth/token/`).
-2. Frontend отправляет запросы к backend (axios клиент).
-3. Backend сохраняет данные в PostgreSQL/PostGIS.
-4. Для заявок поддерживается workflow статусов и история изменений.
+---
 
-## 2. Технологический стек
+## 1) Что сделать в панели Timeweb Cloud
 
-### Frontend
-- Next.js 15 (App Router)
-- React + TypeScript
-- Tailwind CSS
-- Leaflet / React-Leaflet
-- Axios
+### 1.1 Создать сервер
+В панели Timeweb Cloud:
+1. Откройте раздел **Cloud Servers / Облачные серверы**.
+2. Нажмите **Создать сервер**.
+3. Выберите:
+   - ОС: **Ubuntu 22.04** или **Ubuntu 24.04**.
+   - Конфигурацию (минимум на старт): 2 vCPU, 2-4 GB RAM.
+   - Диск: от 20 GB.
+4. Добавьте SSH-ключ (рекомендуется) или задайте пароль.
+5. Дождитесь статуса **Running**.
 
-### Backend
-- Django 5
-- Django REST Framework
-- SimpleJWT
-- drf-spectacular (OpenAPI/Swagger)
-- GeoDjango + PostGIS
+### 1.2 Проверить сеть/фаервол
+Убедитесь, что входящие порты открыты:
+- `22/tcp` (SSH)
+- `80/tcp` (HTTP)
+- `443/tcp` (HTTPS)
 
-### Инфраструктура
-- Docker / Docker Compose
-- PostgreSQL + PostGIS
+Если в Timeweb включены правила безопасности (Security Group/Firewall), добавьте эти правила вручную.
 
-## 3. Доменные модули
-
-### 3.1 Users
-- Кастомная модель пользователя (`email` как login).
-- JWT-аутентификация.
-- Автоназначение роли `citizen` при регистрации.
-- Ролевой подход: `citizen`, `operator`, `admin`.
-
-### 3.2 Tickets
-- Создание заявок с координатами, типом, категорией, изображением.
-- Геогруппировка близких заявок.
-- Статусы: `PENDING_REVIEW`, `IN_PROGRESS`, `COMPLETED`, `REJECTED`.
-- История переходов статусов (`TicketStatusHistory`) с операторским комментарием.
-- Фильтры списка заявок: статус, тип, категория, даты, радиус, сортировка.
-
-### 3.3 News
-- Теги новостей.
-- Статьи с поиском и сортировкой.
-- Учет просмотров.
-
-## 4. Роли и права доступа (RBAC)
-
-- `citizen`:
-  - регистрация/логин;
-  - создание своих заявок;
-  - просмотр своих заявок.
-- `operator`:
-  - обработка заявок;
-  - смена статусов заявок;
-  - управление справочниками категорий/типов.
-- `admin`:
-  - все права operator;
-  - системное администрирование.
-
-Мутации в новостях и справочниках ограничены staff-ролями.
-
-## 5. API (кратко)
-
-### Auth
-- `POST /auth/register/`
-- `POST /auth/token/`
-- `POST /auth/token/refresh/`
-- `GET /auth/me/`
-
-### Tickets
-- `GET /tickets/`
-- `POST /tickets/`
-- `GET /tickets/{id}/`
-- `PATCH /tickets/{id}/`
-- `DELETE /tickets/{id}/`
-- `POST /tickets/{id}/status/` — смена статуса по workflow
-
-Фильтры `GET /tickets/`:
-- `status`
-- `type_id`
-- `category_id`
-- `date_from`, `date_to`
-- `latitude`, `longitude`, `radius_m`
-- `ordering` (`created_at`, `-created_at`, `status`, `-status`)
-
-### News
-- `GET /articles/`, `GET /news-tags/`
-- CRUD для staff-ролей
-
-Swagger:
-- `GET /schema/swagger-ui/`
-
-## 6. Локальный запуск
-
-### Backend (рекомендуется полностью в Docker)
+### 1.3 Подключиться к серверу
 ```bash
-cd backend
-cp .env.example .env
-docker compose -f docker-compose-dev-full.yaml up --build -d
-docker compose -f docker-compose-dev-full.yaml exec backend python manage.py migrate
+ssh root@<SERVER_IP>
 ```
+или под вашим пользователем, если он создан.
 
-### Frontend
+---
+
+## 2) Установка Docker и Docker Compose на сервере
 ```bash
-cd frontend
-npm install
-npm run dev
+sudo apt update
+sudo apt install -y ca-certificates curl gnupg git
+curl -fsSL https://get.docker.com | sudo sh
+sudo usermod -aG docker $USER
+newgrp docker
+
+docker --version
+docker compose version
 ```
 
-### Frontend env
+---
+
+## 3) Загрузка проекта
 ```bash
-cd frontend
-cp .env.example .env.local
+git clone <repository_url>
+cd <project_folder>
 ```
 
-Значение должно указывать на backend, доступный из браузера (обычно `http://localhost:8000/`).
+---
 
+## 4) Подробно: как создать `.env.prod`
 
-## 7. Структура репозитория
-
-```text
-backend/
-  users/          # пользователи, роли, auth
-  tickets/        # заявки, workflow, фильтры, permissions
-  news/           # новости и теги
-  backend/        # settings, urls, wsgi/asgi
-frontend/
-  src/app/        # страницы приложения (auth, requests, news, dashboard)
-  src/services/   # клиент API
-  src/lib/        # утилиты, типы, API-клиент
-```
-
-## 8. Что описывать в ВКР
-
-Рекомендуемые разделы:
-- постановка задачи и актуальность цифровизации обращений;
-- анализ предметной области и аналогов;
-- архитектура системы (контекстная и компонентная диаграммы);
-- модель данных (ER-диаграмма, геоданные PostGIS);
-- проектирование API и RBAC;
-- описание workflow обработки заявок;
-- тестирование (unit, интеграционное, сценарное);
-- безопасность (JWT, разграничение прав, валидация).
-
-
-## 9. Проверка auth вручную (curl)
-
-Регистрация использует endpoint `POST /auth/register/`.
-
+### 4.1 Создайте файл из шаблона
 ```bash
-curl -X POST http://localhost:8000/auth/register/ \
-  -H "Content-Type: application/json" \
-  -d "{\"email\":\"test@example.com\",\"password\":\"StrongPass123\",\"full_name\":\"Test User\"}"
+cp .env.prod.example .env.prod
 ```
 
-Проверка логина:
-
+### 4.2 Сгенерируйте сильные секреты
 ```bash
-curl -X POST http://localhost:8000/auth/token/ \
-  -H "Content-Type: application/json" \
-  -d "{\"email\":\"test@example.com\",\"password\":\"StrongPass123\"}"
+python3 - <<'PY'
+import secrets
+print('DJANGO_SECRET_KEY=' + secrets.token_urlsafe(64))
+print('POSTGRES_PASSWORD=' + secrets.token_urlsafe(32))
+print('DJANGO_SUPERUSER_PASSWORD=' + secrets.token_urlsafe(24))
+PY
 ```
+Скопируйте значения в `.env.prod`.
 
-
-## 10. Начальные данные (seed)
-
-После миграций загрузите начальные данные backend:
-
+### 4.3 Отредактируйте `.env.prod`
 ```bash
-cd backend
-python manage.py seed_data
+nano .env.prod
 ```
 
-В Docker:
+Рекомендуемый пример (замените `example.ru` на ваш домен):
+```env
+DJANGO_SECRET_KEY=<strong_secret>
+DJANGO_DEBUG=False
+DJANGO_ALLOWED_HOSTS=example.ru,www.example.ru,localhost,127.0.0.1
+CSRF_TRUSTED_ORIGINS=https://example.ru,https://www.example.ru
+CORS_ALLOWED_ORIGINS=https://example.ru,https://www.example.ru
 
+POSTGRES_DB=app_db
+POSTGRES_USER=app_user
+POSTGRES_PASSWORD=<strong_db_password>
+POSTGRES_HOST=db
+POSTGRES_PORT=5432
+
+NEXT_PUBLIC_API_URL=https://example.ru/api
+
+DJANGO_SUPERUSER_EMAIL=admin@example.com
+DJANGO_SUPERUSER_USERNAME=admin
+DJANGO_SUPERUSER_PASSWORD=<strong_admin_password>
+```
+
+### 4.4 Проверка `.env.prod`
+Проверьте, что:
+- `DJANGO_DEBUG=False`
+- `NEXT_PUBLIC_API_URL` = `https://<домен>/api`
+- Нет `localhost` в production URL frontend API.
+- Хост базы: `POSTGRES_HOST=db`.
+
+> Важно: `.env.prod` не коммитится в Git, храните его только на сервере.
+
+---
+
+## 5) Подключение домена
+
+У регистратора домена создайте DNS A-записи:
+- `example.ru` -> `<SERVER_IP>`
+- `www.example.ru` -> `<SERVER_IP>`
+
+Проверка:
 ```bash
-docker compose -f docker-compose-dev-full.yaml exec backend python manage.py seed_data
+dig +short example.ru
+dig +short www.example.ru
+```
+Обе записи должны вернуть IP вашего сервера.
+
+---
+
+## 6) Подготовка nginx-конфига под ваш домен
+В файле `deploy/nginx/default.conf` замените:
+- `example.ru`
+- `www.example.ru`
+на ваш реальный домен.
+
+И в SSL путях тоже:
+- `/etc/letsencrypt/live/<your-domain>/fullchain.pem`
+- `/etc/letsencrypt/live/<your-domain>/privkey.pem`
+
+---
+
+## 7) Первый запуск проекта
+```bash
+docker compose -f docker-compose.prod.yml up -d --build
 ```
 
-Команда создаёт:
-- категории обращений;
-- типы обращений по категориям;
-- администратора: `admin@example.com` / `admin12345`.
+Проверка статуса:
+```bash
+docker compose -f docker-compose.prod.yml ps
+```
 
-Эндпоинты для категорий и типов:
-- `GET /ticket-categories/`
-- `GET /ticket-categories/{id}/` (с вложенными типами)
-- `GET /ticket-types/`
+---
+
+## 8) Миграции, статика, начальные данные
+```bash
+docker compose -f docker-compose.prod.yml exec backend python manage.py migrate
+docker compose -f docker-compose.prod.yml exec backend python manage.py collectstatic --noinput
+```
+
+Если есть команда seed:
+```bash
+docker compose -f docker-compose.prod.yml exec backend python manage.py seed_data
+```
+
+Создание суперпользователя (если нужно):
+```bash
+docker compose -f docker-compose.prod.yml exec backend python manage.py createsuperuser
+```
+
+---
+
+## 9) HTTPS / SSL (Let's Encrypt через certbot контейнер)
+
+### 9.1 Убедитесь, что домен уже смотрит на сервер
+```bash
+dig +short example.ru
+```
+
+### 9.2 Выпустите сертификат
+```bash
+docker compose -f docker-compose.prod.yml run --rm certbot certonly \
+  --webroot -w /var/www/certbot \
+  -d example.ru -d www.example.ru \
+  --email admin@example.com --agree-tos --no-eff-email
+```
+
+### 9.3 Перезапустите nginx
+```bash
+docker compose -f docker-compose.prod.yml restart nginx
+```
+
+### 9.4 Проверьте HTTPS
+```bash
+curl -I https://example.ru
+curl -I https://example.ru/api/
+curl -I https://example.ru/admin/
+```
+
+### 9.5 Обновление сертификата
+Рекомендуется добавить cron (например, раз в день):
+```bash
+docker compose -f docker-compose.prod.yml run --rm certbot renew
+docker compose -f docker-compose.prod.yml restart nginx
+```
+
+---
+
+## 10) Команды обслуживания
+
+Просмотр логов:
+```bash
+docker compose -f docker-compose.prod.yml logs -f
+```
+
+Логи backend:
+```bash
+docker compose -f docker-compose.prod.yml logs -f backend
+```
+
+Логи frontend:
+```bash
+docker compose -f docker-compose.prod.yml logs -f frontend
+```
+
+Логи nginx:
+```bash
+docker compose -f docker-compose.prod.yml logs -f nginx
+```
+
+Перезапуск:
+```bash
+docker compose -f docker-compose.prod.yml restart
+```
+
+Остановка:
+```bash
+docker compose -f docker-compose.prod.yml down
+```
+
+Обновление проекта:
+```bash
+git pull
+docker compose -f docker-compose.prod.yml up -d --build
+docker compose -f docker-compose.prod.yml exec backend python manage.py migrate
+docker compose -f docker-compose.prod.yml exec backend python manage.py collectstatic --noinput
+```
+
+---
+
+## 11) Pre-deploy checklist
+- `DJANGO_DEBUG=False`
+- `NEXT_PUBLIC_API_URL=https://<domain>/api`
+- `DJANGO_ALLOWED_HOSTS` содержит домен
+- `CORS_ALLOWED_ORIGINS` и `CSRF_TRUSTED_ORIGINS` содержат `https://<domain>`
+- `db` и `backend` не имеют `ports` наружу
+- наружу опубликованы только `80/443` через nginx
+- миграции/collectstatic проходят
+- `https://<domain>/api/` отвечает
+- `https://<domain>/admin/` открывается
+
+---
+
+## 12) Частые проблемы и решения
+- **Nginx не стартует после включения SSL**  
+  Проверьте, что сертификаты выпущены и домен в `default.conf` совпадает с `certbot -d`.
+
+- **DisallowedHost в Django**  
+  Добавьте домен в `DJANGO_ALLOWED_HOSTS`.
+
+- **CSRF Failed**  
+  Проверьте `CSRF_TRUSTED_ORIGINS` (обязательно с `https://`).
+
+- **502 Bad Gateway**  
+  Проверьте логи `nginx`, `backend`, `frontend`.
+
+- **Статика не отдается**  
+  Запустите `collectstatic --noinput` и проверьте volume `static_data`.
+
+- **Frontend ходит не туда**  
+  Проверьте `NEXT_PUBLIC_API_URL`, он должен быть `https://<domain>/api`.
