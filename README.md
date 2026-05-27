@@ -172,3 +172,29 @@ curl -X POST http://localhost:8000/auth/token/ \
   -H "Content-Type: application/json" \
   -d "{\"email\":\"test@example.com\",\"password\":\"StrongPass123\"}"
 ```
+
+
+## 10. Начальные данные (seed)
+
+После миграций загрузите начальные данные backend:
+
+```bash
+cd backend
+python manage.py seed_data
+```
+
+В Docker:
+
+```bash
+docker compose -f docker-compose-dev-full.yaml exec backend python manage.py seed_data
+```
+
+Команда создаёт:
+- категории обращений;
+- типы обращений по категориям;
+- администратора: `admin@example.com` / `admin12345`.
+
+Эндпоинты для категорий и типов:
+- `GET /ticket-categories/`
+- `GET /ticket-categories/{id}/` (с вложенными типами)
+- `GET /ticket-types/`

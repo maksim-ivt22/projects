@@ -121,3 +121,24 @@
    ```sh
    python manage.py runserver
    ```
+
+
+8. Загрузите начальные данные (категории, типы, администратор)
+
+```sh
+python manage.py seed_data
+```
+
+Для Docker-режима:
+
+```sh
+docker compose -f docker-compose-dev-full.yaml exec backend python manage.py seed_data
+```
+
+Будут созданы:
+- категории и типы заявок для формы создания обращения;
+- администратор локальной разработки:
+  - email: `admin@example.com`
+  - пароль: `admin12345`
+
+Команда идемпотентна: повторный запуск не создаёт дубликаты.

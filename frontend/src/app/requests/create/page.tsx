@@ -46,13 +46,32 @@ const CreateTicketPage = () => {
   const [types, setTypes] = useState<TicketType[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [loadingError, setLoadingError] = useState<string | null>(null);
 
   const fetchCategories = async () => {
-    setCategories((await ticketsService.getCategories()).results);
+    try {
+      setLoadingError(null);
+      const response = await ticketsService.getCategories();
+      setCategories(response.results);
+
+      if (!response.results.length) {
+        setLoadingError("Категории пока не добавлены");
+      }
+    } catch {
+      setLoadingError("Не удалось загрузить категории. Попробуйте обновить страницу.");
+      setCategories([]);
+    }
   };
 
   const fetchTypes = async (categoryId: number) => {
-    setTypes((await ticketsService.getCategory(categoryId)).types);
+    try {
+      setLoadingError(null);
+      const response = await ticketsService.getCategory(categoryId);
+      setTypes(response.types);
+    } catch {
+      setLoadingError("Не удалось загрузить типы для выбранной категории.");
+      setTypes([]);
+    }
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -84,11 +103,15 @@ const CreateTicketPage = () => {
 
   useEffect(() => {
     if (currentCategory !== "") {
-      fetchTypes(
-        categories.find((category) => category.title === currentCategory)!.id
+      const selectedCategory = categories.find(
+        (category) => category.title === currentCategory
       );
+
+      if (selectedCategory) {
+        fetchTypes(selectedCategory.id);
+      }
     }
-  }, [currentCategory]);
+  }, [currentCategory, categories]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -236,6 +259,11 @@ const CreateTicketPage = () => {
         </div>
 
         <Label className="text-sm">Категория</Label>
+        {loadingError && (
+          <p className="text-sm text-destructive mb-2" role="alert">
+            {loadingError}
+          </p>
+        )}
         <Popover>
           <PopoverTrigger asChild>
             <Button variant={"outline"} className="w-full justify-start">
