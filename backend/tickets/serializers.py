@@ -2,7 +2,7 @@ from rest_framework.exceptions import ValidationError
 from django.contrib.gis.geos import Point
 from rest_framework import serializers
 
-from .models import Ticket, TicketCategory, TicketType
+from .models import Ticket, TicketCategory, TicketType, TicketStatusHistory
 from users.serializers import UserSerializer
 
 
@@ -58,6 +58,7 @@ class TicketSerializer(serializers.ModelSerializer):
     type_id = serializers.PrimaryKeyRelatedField(
         queryset=TicketType.objects.all(), write_only=True, required=True, source="type"
     )
+    status_history = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
         model = Ticket
@@ -74,6 +75,7 @@ class TicketSerializer(serializers.ModelSerializer):
             "image",
             "type",
             "type_id",
+            "status_history",
         )
         read_only_fields = ("user", "status", "created_at", "type")
 
@@ -94,3 +96,20 @@ class TicketSerializer(serializers.ModelSerializer):
             )
 
         return data
+
+    def get_status_history(self, obj: Ticket):
+        history = obj.status_history.select_related("changed_by").all()
+        return TicketStatusHistorySerializer(history, many=True).data
+
+
+class TicketStatusHistorySerializer(serializers.ModelSerializer):
+    changed_by = UserSerializer(read_only=True)
+
+    class Meta:
+        model = TicketStatusHistory
+        fields = ("id", "from_status", "to_status", "comment", "changed_by", "created_at")
+
+
+class TicketStatusUpdateSerializer(serializers.Serializer):
+    status = serializers.ChoiceField(choices=Ticket.STATUS_CHOICES)
+    comment = serializers.CharField(required=False, allow_blank=True, max_length=1000)

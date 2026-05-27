@@ -6,6 +6,16 @@ import { Ticket, TicketStatus } from "../lib/types/tickets/ticket";
 import { TicketCategoryWithTypes } from "../lib/types/tickets/ticket-category-with-types";
 
 class TicketsService {
+  private appendIfDefined(
+    params: URLSearchParams,
+    key: string,
+    value: string | number | undefined
+  ) {
+    if (value !== undefined && value !== "") {
+      params.append(key, String(value));
+    }
+  }
+
   async createTicket(input: CreateTicketInput) {
     const formData = new FormData();
 
@@ -24,7 +34,7 @@ class TicketsService {
     }
 
     const ticket: Ticket = (
-      await api.post("tickets/", input, {
+      await api.post("tickets/", formData, {
         headers: {
           "Content-Type": "multipart/form-data",
         },
@@ -33,8 +43,31 @@ class TicketsService {
     return ticket;
   }
 
-  async getTickets(): Promise<PaginatedTickets> {
-    const data: PaginatedTickets = (await api.get(`tickets/`)).data;
+  async getTickets(filters?: {
+    status?: TicketStatus;
+    typeId?: number;
+    categoryId?: number;
+    dateFrom?: string;
+    dateTo?: string;
+    latitude?: number;
+    longitude?: number;
+    radiusM?: number;
+    ordering?: "created_at" | "-created_at" | "status" | "-status";
+  }): Promise<PaginatedTickets> {
+    const params = new URLSearchParams();
+    this.appendIfDefined(params, "status", filters?.status);
+    this.appendIfDefined(params, "type_id", filters?.typeId);
+    this.appendIfDefined(params, "category_id", filters?.categoryId);
+    this.appendIfDefined(params, "date_from", filters?.dateFrom);
+    this.appendIfDefined(params, "date_to", filters?.dateTo);
+    this.appendIfDefined(params, "latitude", filters?.latitude);
+    this.appendIfDefined(params, "longitude", filters?.longitude);
+    this.appendIfDefined(params, "radius_m", filters?.radiusM);
+    this.appendIfDefined(params, "ordering", filters?.ordering);
+
+    const query = params.toString();
+    const url = query ? `tickets/?${query}` : "tickets/";
+    const data: PaginatedTickets = (await api.get(url)).data;
     return data;
   }
 

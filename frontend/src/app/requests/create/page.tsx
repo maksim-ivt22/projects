@@ -44,13 +44,34 @@ const CreateTicketPage = () => {
   const [currentCategory, setCurrentCategory] = useState("");
   const [currentType, setCurrentType] = useState("");
   const [types, setTypes] = useState<TicketType[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [loadingError, setLoadingError] = useState<string | null>(null);
 
   const fetchCategories = async () => {
-    setCategories((await ticketsService.getCategories()).results);
+    try {
+      setLoadingError(null);
+      const response = await ticketsService.getCategories();
+      setCategories(response.results);
+
+      if (!response.results.length) {
+        setLoadingError("Категории пока не добавлены");
+      }
+    } catch {
+      setLoadingError("Не удалось загрузить категории. Попробуйте обновить страницу.");
+      setCategories([]);
+    }
   };
 
   const fetchTypes = async (categoryId: number) => {
-    setTypes((await ticketsService.getCategory(categoryId)).types);
+    try {
+      setLoadingError(null);
+      const response = await ticketsService.getCategory(categoryId);
+      setTypes(response.types);
+    } catch {
+      setLoadingError("Не удалось загрузить типы для выбранной категории.");
+      setTypes([]);
+    }
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -82,23 +103,37 @@ const CreateTicketPage = () => {
 
   useEffect(() => {
     if (currentCategory !== "") {
-      fetchTypes(
-        categories.find((category) => category.title === currentCategory)!.id
+      const selectedCategory = categories.find(
+        (category) => category.title === currentCategory
       );
+
+      if (selectedCategory) {
+        fetchTypes(selectedCategory.id);
+      }
     }
-  }, [currentCategory]);
+  }, [currentCategory, categories]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const data: CreateTicketInput = {
-      ...baseFormData,
-      latitude: Number(baseFormData.latitude),
-      longitude: Number(baseFormData.longitude),
-      typeId: types.find((type) => type.title === currentType)!.id,
-      image: selectedFile || undefined,
-    };
-    const newTicket = await ticketsService.createTicket(data);
-    router.replace(`/requests/${newTicket.id}`);
+    setSubmitError(null);
+    setIsSubmitting(true);
+    try {
+      const data: CreateTicketInput = {
+        ...baseFormData,
+        latitude: Number(baseFormData.latitude),
+        longitude: Number(baseFormData.longitude),
+        typeId: types.find((type) => type.title === currentType)!.id,
+        image: selectedFile || undefined,
+      };
+      const newTicket = await ticketsService.createTicket(data);
+      router.replace(`/requests/${newTicket.id}`);
+    } catch {
+      setSubmitError(
+        "Не удалось создать заявку. Проверьте введённые данные и попробуйте ещё раз."
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -224,6 +259,11 @@ const CreateTicketPage = () => {
         </div>
 
         <Label className="text-sm">Категория</Label>
+        {loadingError && (
+          <p className="text-sm text-destructive mb-2" role="alert">
+            {loadingError}
+          </p>
+        )}
         <Popover>
           <PopoverTrigger asChild>
             <Button variant={"outline"} className="w-full justify-start">
@@ -291,7 +331,18 @@ const CreateTicketPage = () => {
           </PopoverContent>
         </Popover>
 
-        <Button className="w-full mt-5">Создать</Button>
+        {submitError && (
+          <p className="text-sm text-destructive" role="alert">
+            {submitError}
+          </p>
+        )}
+
+        <Button
+          className="w-full mt-5"
+          disabled={isSubmitting || currentCategory === "" || currentType === ""}
+        >
+          {isSubmitting ? "Создание..." : "Создать"}
+        </Button>
       </form>
     </>
   );
