@@ -17,11 +17,11 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-DB_NAME = os.getenv("DB_NAME", "")
-DB_USER = os.getenv("DB_USER", "")
-DB_PASS = os.getenv("DB_PASS", "")
-DB_HOST = os.getenv("DB_HOST", "")
-DB_PORT = os.getenv("DB_PORT", "")
+DB_NAME = os.getenv("POSTGRES_DB", os.getenv("DB_NAME", "postgres"))
+DB_USER = os.getenv("POSTGRES_USER", os.getenv("DB_USER", "postgres"))
+DB_PASS = os.getenv("POSTGRES_PASSWORD", os.getenv("DB_PASS", "postgres"))
+DB_HOST = os.getenv("POSTGRES_HOST", os.getenv("DB_HOST", "localhost"))
+DB_PORT = os.getenv("POSTGRES_PORT", os.getenv("DB_PORT", "5432"))
 
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -32,12 +32,12 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.getenv("SECRET_KEY", "")
+SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", os.getenv("SECRET_KEY", "insecure-dev-key"))
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.getenv("DEBUG", "False") == "True"
+DEBUG = os.getenv("DJANGO_DEBUG", os.getenv("DEBUG", "False")).lower() == "true"
 
-ALLOWED_HOSTS = ["*"]
+ALLOWED_HOSTS = [h.strip() for h in os.getenv("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1").split(",") if h.strip()]
 
 
 # Application definition
@@ -151,8 +151,8 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.0/howto/static-files/
 
-STATIC_ROOT = BASE_DIR / "static/"
-STATIC_URL = "static/"
+STATIC_URL = "/static/"
+STATIC_ROOT = BASE_DIR / "static"
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.0/ref/settings/#default-auto-field
@@ -216,8 +216,8 @@ STORAGES = {
 
 UNFOLD = {"SITE_HEADER": "Админ панель"}
 
-MEDIA_ROOT = BASE_DIR / "media/"
-MEDIA_URL = "media/"
+MEDIA_URL = "/media/"
+MEDIA_ROOT = BASE_DIR / "media"
 
 
 CORS_ALLOW_METHODS = (
@@ -229,8 +229,11 @@ CORS_ALLOW_METHODS = (
     "PUT",
 )
 
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-]
+CORS_ALLOWED_ORIGINS = [o.strip() for o in os.getenv("CORS_ALLOWED_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000").split(",") if o.strip()]
+CSRF_TRUSTED_ORIGINS = [o.strip() for o in os.getenv("CSRF_TRUSTED_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000").split(",") if o.strip()]
 CORS_ALLOW_CREDENTIALS = True
+
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+USE_X_FORWARDED_HOST = True
+CSRF_COOKIE_SECURE = not DEBUG
+SESSION_COOKIE_SECURE = not DEBUG
