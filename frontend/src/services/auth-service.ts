@@ -6,6 +6,11 @@ import { RegisterInput } from "../lib/types/auth/register-input";
 import { User } from "../lib/types/auth/user";
 import { API_ENDPOINTS } from "../lib/api/endpoints";
 
+export type SendVerificationCodeResponse = {
+  detail: string;
+  verification_code?: string;
+};
+
 class AuthService {
   async getMe(): Promise<User> {
     const user: User = (await api.get(API_ENDPOINTS.auth.me)).data;
@@ -18,8 +23,10 @@ class AuthService {
     return user;
   }
 
-  async sendVerificationCode(email: string): Promise<{ detail: string }> {
-    const response = await api.post<{ detail: string }>(
+  async sendVerificationCode(
+    email: string,
+  ): Promise<SendVerificationCodeResponse> {
+    const response = await api.post<SendVerificationCodeResponse>(
       API_ENDPOINTS.auth.sendVerificationCode,
       { email },
     );

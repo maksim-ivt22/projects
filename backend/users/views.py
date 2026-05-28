@@ -1,4 +1,5 @@
 import secrets
+import smtplib
 from datetime import timedelta
 
 from django.conf import settings
@@ -57,15 +58,37 @@ class SendVerificationCodeView(APIView):
             expires_at=expires_at,
         )
 
-        send_mail(
-            subject="Код подтверждения email",
-            message=f"Ваш код подтверждения: {code}. Код действует 10 минут.",
-            from_email=settings.DEFAULT_FROM_EMAIL,
-            recipient_list=[email],
-            fail_silently=False,
-        )
+        try:
+            send_mail(
+                subject="Код подтверждения email",
+                message=f"Ваш код подтверждения: {code}. Код действует 10 минут.",
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                recipient_list=[email],
+                fail_silently=False,
+            )
+        except (
+            OSError,
+            TimeoutError,
+            ConnectionRefusedError,
+            smtplib.SMTPException,
+        ):
+            if settings.EMAIL_VERIFICATION_DEMO_MODE:
+                return Response(
+                    {
+                        "detail": (
+                            "SMTP временно недоступен. Код подтверждения создан "
+                            "в demo-режиме."
+                        ),
+                        "verification_code": code,
+                    }
+                )
 
-        return Response({"detail": "Код отправлен"})
+            return Response(
+                {"detail": "Сервис отправки email временно недоступен"},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+
+        return Response({"detail": "Код подтверждения отправлен на email"})
 
 
 class VerifyEmailCodeView(APIView):

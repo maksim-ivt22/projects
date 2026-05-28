@@ -10,6 +10,7 @@ export type RegisterFormState = {
     city: string;
     password: string;
   };
+  demoVerificationCode?: string;
 };
 
 export type RegisterFormActions = {
@@ -28,6 +29,7 @@ export const defaultInitState: RegisterFormState = {
     city: "",
     password: "",
   },
+  demoVerificationCode: undefined,
 };
 
 export const createRegisterFormStore = (
