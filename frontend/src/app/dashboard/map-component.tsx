@@ -15,6 +15,7 @@ import { Icon } from "@iconify/react";
 import { Button } from "../../components/ui/button";
 import Link from "next/link";
 import { cn } from "../../lib/utils";
+import geoService, { UNKNOWN_ADDRESS } from "../../services/geo-service";
 import markerIcon2x from "leaflet/dist/images/marker-icon-2x.png";
 import markerIcon from "leaflet/dist/images/marker-icon.png";
 import markerShadow from "leaflet/dist/images/marker-shadow.png";
@@ -88,17 +89,33 @@ const MapComponent = ({ className }: { className?: string }) => {
     return () => clearTimeout(timer);
   }, []);
 
-  const updateStreet = async () => {
-    const data = await fetch(
-      `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${position[0]}&lon=${position[1]}&accept-language=ru`
-    );
-    const streetData = await data.json();
-    const streetAdress = streetData.address.road;
-    setStreet(streetAdress);
-  };
-
   useEffect(() => {
+    let ignoreResult = false;
+
+    const updateStreet = async () => {
+      try {
+        const address = await geoService.reverseGeocode(
+          position[0],
+          position[1],
+        );
+
+        if (!ignoreResult) {
+          setStreet(address);
+        }
+      } catch (error) {
+        console.error("Reverse geocoding error:", error);
+
+        if (!ignoreResult) {
+          setStreet(UNKNOWN_ADDRESS);
+        }
+      }
+    };
+
     updateStreet();
+
+    return () => {
+      ignoreResult = true;
+    };
   }, [position]);
 
   return (
@@ -121,10 +138,7 @@ const MapComponent = ({ className }: { className?: string }) => {
         >
           <div className="text-black font-sans space-y-1">
             <div>
-              <span className="text-base p-0 m-0">
-                {street ? street[0].toUpperCase() : ""}
-                {street.substring(1)}
-              </span>
+              <span className="text-base p-0 m-0">{street}</span>
               <br />
               <small className="p-0 m-0 text-[12px]">
                 {position[0].toFixed(6)}, {position[1].toFixed(6)}
@@ -132,7 +146,7 @@ const MapComponent = ({ className }: { className?: string }) => {
             </div>
             <Button asChild variant={"ghost"} className="cursor-pointer">
               <Link
-                href={`/requests/create?address=${street}&latitude=${position[0]}&longitude=${position[1]}`}
+                href={`/requests/create?address=${encodeURIComponent(street)}&latitude=${position[0]}&longitude=${position[1]}`}
               >
                 <Icon
                   className="text-foreground"

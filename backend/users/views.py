@@ -1,10 +1,23 @@
-from rest_framework import generics, status
-from rest_framework.response import Response
-from django.contrib.auth.models import Group
-from rest_framework import permissions, viewsets
+import secrets
+import smtplib
+from datetime import timedelta
 
-from .models import User
-from .serializers import GroupSerializer, UserRegistrationSerializer, UserSerializer
+from django.conf import settings
+from django.contrib.auth.models import Group
+from django.core.mail import send_mail
+from django.utils import timezone
+from rest_framework import generics, permissions, status, viewsets
+from rest_framework.response import Response
+from rest_framework.views import APIView
+
+from .models import EmailVerificationCode, User
+from .serializers import (
+    GroupSerializer,
+    SendVerificationCodeSerializer,
+    UserRegistrationSerializer,
+    UserSerializer,
+    VerifyEmailCodeSerializer,
+)
 
 
 class UserViewSet(viewsets.ModelViewSet):
@@ -25,6 +38,88 @@ class GroupViewSet(viewsets.ModelViewSet):
     queryset = Group.objects.all().order_by("name")
     serializer_class = GroupSerializer
     permission_classes = [permissions.IsAdminUser]
+
+
+class SendVerificationCodeView(APIView):
+    permission_classes = [permissions.AllowAny]
+    serializer_class = SendVerificationCodeSerializer
+
+    def post(self, request, *args, **kwargs):
+        serializer = self.serializer_class(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        email = serializer.validated_data["email"]
+        code = f"{secrets.randbelow(1_000_000):06d}"
+        expires_at = timezone.now() + timedelta(minutes=10)
+
+        EmailVerificationCode.objects.create(
+            email=email,
+            code=code,
+            expires_at=expires_at,
+        )
+
+        try:
+            send_mail(
+                subject="Код подтверждения email",
+                message=f"Ваш код подтверждения: {code}. Код действует 10 минут.",
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                recipient_list=[email],
+                fail_silently=False,
+            )
+        except (OSError, TimeoutError, ConnectionRefusedError, smtplib.SMTPException):
+            if settings.EMAIL_VERIFICATION_DEMO_MODE:
+                return Response(
+                    {
+                        "detail": (
+                            "SMTP временно недоступен. "
+                            "Код подтверждения создан в demo-режиме."
+                        ),
+                        "verification_code": code,
+                    }
+                )
+
+            return Response(
+                {"detail": "Сервис отправки email временно недоступен"},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+
+        return Response({"detail": "Код подтверждения отправлен на email"})
+
+
+class VerifyEmailCodeView(APIView):
+    permission_classes = [permissions.AllowAny]
+    serializer_class = VerifyEmailCodeSerializer
+
+    def post(self, request, *args, **kwargs):
+        serializer = self.serializer_class(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        email = serializer.validated_data["email"]
+        code = serializer.validated_data["code"]
+        verification_code = (
+            EmailVerificationCode.objects.filter(email__iexact=email, is_used=False)
+            .order_by("-created_at")
+            .first()
+        )
+
+        if not verification_code or verification_code.code != code:
+            return Response(
+                {"detail": "Неверный код подтверждения"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if verification_code.expires_at <= timezone.now():
+            verification_code.is_used = True
+            verification_code.save(update_fields=["is_used"])
+            return Response(
+                {"detail": "Код истёк, запросите новый"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        verification_code.is_used = True
+        verification_code.save(update_fields=["is_used"])
+
+        return Response({"verified": True})
 
 
 class UserRegisterView(generics.CreateAPIView):

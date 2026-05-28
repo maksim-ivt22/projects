@@ -13,18 +13,44 @@ class AuthService {
   }
 
   async register(input: RegisterInput): Promise<User> {
-    const authToken: User = (await api.post(API_ENDPOINTS.auth.register, input)).data;
-    return authToken;
+    const user: User = (await api.post(API_ENDPOINTS.auth.register, input))
+      .data;
+    return user;
+  }
+
+  async sendVerificationCode(email: string): Promise<{
+    detail: string;
+    verification_code?: string;
+  }> {
+    const response = await api.post<{
+      detail: string;
+      verification_code?: string;
+    }>(API_ENDPOINTS.auth.sendVerificationCode, { email });
+    return response.data;
+  }
+
+  async verifyCode(input: {
+    email: string;
+    code: string;
+  }): Promise<{ verified: boolean }> {
+    const response = await api.post<{ verified: boolean }>(
+      API_ENDPOINTS.auth.verifyCode,
+      input,
+    );
+    return response.data;
   }
 
   async login(input: LoginInput): Promise<AuthToken> {
-    const authToken: AuthToken = (await api.post(API_ENDPOINTS.auth.token, input)).data;
+    const authToken: AuthToken = (
+      await api.post(API_ENDPOINTS.auth.token, input)
+    ).data;
     return authToken;
   }
 
   async refreshToken(input: RefreshTokenInput): Promise<AuthToken> {
-    const authToken: AuthToken = (await api.post(API_ENDPOINTS.auth.refresh, input))
-      .data;
+    const authToken: AuthToken = (
+      await api.post(API_ENDPOINTS.auth.refresh, input)
+    ).data;
     return authToken;
   }
 }

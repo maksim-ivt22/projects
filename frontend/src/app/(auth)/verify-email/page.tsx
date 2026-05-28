@@ -4,6 +4,8 @@ import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useRegisterFormStore } from "../../../providers/register-form-store-provider";
 import { useAuth } from "../../../context/auth-context";
+import { getApiErrorMessage } from "../../../lib/api/error-utils";
+import authService from "../../../services/auth-service";
 
 function VerifyEmailContent() {
   const router = useRouter();
@@ -13,6 +15,7 @@ function VerifyEmailContent() {
   const { register, login } = useAuth();
 
   const email = searchParams.get("email");
+  const demoCode = searchParams.get("demoCode");
 
   const [code, setCode] = useState(["", "", "", "", "", ""]);
   const [isLoading, setIsLoading] = useState(false);
@@ -26,7 +29,7 @@ function VerifyEmailContent() {
 
       if (value && index < 5) {
         const nextInput = document.getElementById(
-          `code-${index + 1}`
+          `code-${index + 1}`,
         ) as HTMLInputElement;
         nextInput?.focus();
       }
@@ -40,9 +43,19 @@ function VerifyEmailContent() {
 
     try {
       if (!email) throw new Error("Email не найден");
+      if (!formData.email || !formData.password || !formData.name) {
+        throw new Error(
+          "Данные регистрации не найдены. Заполните форму ещё раз.",
+        );
+      }
 
       const fullCode = code.join("");
       if (fullCode.length !== 6) throw new Error("Введите полный код");
+
+      await authService.verifyCode({
+        email,
+        code: fullCode,
+      });
 
       await register({
         fullName: formData.name,
@@ -57,7 +70,7 @@ function VerifyEmailContent() {
 
       router.push("/dashboard");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Неизвестная ошибка");
+      setError(getApiErrorMessage(err));
       setCode(["", "", "", "", "", ""]);
 
       const firstInput = document.getElementById("code-0") as HTMLInputElement;
@@ -98,6 +111,12 @@ function VerifyEmailContent() {
       <p className="text-center text-gray-600 mb-8">
         Введите 6-значный код, отправленный на {email}
       </p>
+
+      {demoCode && (
+        <div className="mb-6 rounded-lg bg-amber-100 p-3 text-center text-sm text-amber-900">
+          SMTP временно недоступен. Код для демонстрации: {demoCode}
+        </div>
+      )}
 
       <form onSubmit={handleSubmit} className="flex flex-col items-center">
         <div className="flex justify-center space-x-3 mb-8">
