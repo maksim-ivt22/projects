@@ -2,6 +2,7 @@ import json
 from unittest.mock import patch
 from urllib.error import URLError
 
+from django.conf import settings
 from django.test import SimpleTestCase, override_settings
 from django.urls import reverse
 
@@ -53,3 +54,19 @@ class ReverseGeocodeTests(SimpleTestCase):
 
         self.assertEqual(response.status_code, 502)
         self.assertEqual(response.json()["address"], "Адрес не определён")
+
+
+class RestFrameworkAuthenticationSettingsTests(SimpleTestCase):
+    def test_api_uses_jwt_without_session_authentication(self):
+        authentication_classes = settings.REST_FRAMEWORK[
+            "DEFAULT_AUTHENTICATION_CLASSES"
+        ]
+
+        self.assertEqual(
+            authentication_classes,
+            ("rest_framework_simplejwt.authentication.JWTAuthentication",),
+        )
+        self.assertNotIn(
+            "rest_framework.authentication.SessionAuthentication",
+            authentication_classes,
+        )
