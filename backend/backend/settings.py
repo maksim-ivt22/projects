@@ -219,6 +219,11 @@ UNFOLD = {"SITE_HEADER": "Админ панель"}
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
 
+NOMINATIM_USER_AGENT = os.getenv(
+    "NOMINATIM_USER_AGENT", "PagedCity/1.0 (reverse-geocode proxy)"
+)
+NOMINATIM_TIMEOUT = int(os.getenv("NOMINATIM_TIMEOUT", "5"))
+
 
 CORS_ALLOW_METHODS = (
     "DELETE",
