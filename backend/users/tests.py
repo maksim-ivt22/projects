@@ -1,4 +1,5 @@
 from datetime import timedelta
+from unittest.mock import patch
 
 from django.contrib.auth.models import Group
 from django.core import mail
@@ -44,7 +45,9 @@ class EmailVerificationCodeFlowTests(TestCase):
         )
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json()["detail"], "Код отправлен")
+        self.assertEqual(
+            response.json()["detail"], "Код подтверждения отправлен на email"
+        )
 
         verification_code = EmailVerificationCode.objects.get(email="new@example.com")
         self.assertEqual(len(verification_code.code), 6)
@@ -52,6 +55,53 @@ class EmailVerificationCodeFlowTests(TestCase):
         self.assertGreater(verification_code.expires_at, timezone.now())
         self.assertEqual(len(mail.outbox), 1)
         self.assertIn(verification_code.code, mail.outbox[0].body)
+
+    @override_settings(EMAIL_VERIFICATION_DEMO_MODE=True)
+    @patch("users.views.send_mail", side_effect=OSError("SMTP unavailable"))
+    def test_send_verification_code_returns_demo_code_when_smtp_fails(
+        self, mocked_send_mail
+    ):
+        response = self.client.post(
+            reverse("auth:send_verification_code"),
+            {"email": "demo@example.com"},
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(
+            data["detail"],
+            "SMTP временно недоступен. Код подтверждения создан в demo-режиме.",
+        )
+        self.assertEqual(len(data["verification_code"]), 6)
+
+        verification_code = EmailVerificationCode.objects.get(email="demo@example.com")
+        self.assertEqual(data["verification_code"], verification_code.code)
+        self.assertFalse(verification_code.is_used)
+        mocked_send_mail.assert_called_once()
+
+    @override_settings(EMAIL_VERIFICATION_DEMO_MODE=False)
+    @patch("users.views.send_mail", side_effect=OSError("SMTP unavailable"))
+    def test_send_verification_code_returns_503_when_smtp_fails_without_demo_mode(
+        self, mocked_send_mail
+    ):
+        response = self.client.post(
+            reverse("auth:send_verification_code"),
+            {"email": "smtp-down@example.com"},
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(
+            response.json(),
+            {"detail": "Сервис отправки email временно недоступен"},
+        )
+        self.assertTrue(
+            EmailVerificationCode.objects.filter(
+                email="smtp-down@example.com"
+            ).exists()
+        )
+        mocked_send_mail.assert_called_once()
 
     def test_verify_code_marks_latest_unused_code_as_used(self):
         verification_code = EmailVerificationCode.objects.create(

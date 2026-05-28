@@ -11,7 +11,9 @@ function VerifyEmailContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const { formData } = useRegisterFormStore((state) => state);
+  const { formData, demoVerificationCode } = useRegisterFormStore(
+    (state) => state,
+  );
   const { register, login } = useAuth();
 
   const email = searchParams.get("email");
@@ -110,6 +112,12 @@ function VerifyEmailContent() {
       <p className="text-center text-gray-600 mb-8">
         Введите 6-значный код, отправленный на {email}
       </p>
+
+      {demoVerificationCode && (
+        <div className="mb-6 rounded-lg bg-yellow-50 p-3 text-center text-sm text-yellow-800">
+          SMTP временно недоступен. Код для демонстрации: {demoVerificationCode}
+        </div>
+      )}
 
       <form onSubmit={handleSubmit} className="flex flex-col items-center">
         <div className="flex justify-center space-x-3 mb-8">

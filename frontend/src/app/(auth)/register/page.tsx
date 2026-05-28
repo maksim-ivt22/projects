@@ -47,9 +47,12 @@ export default function Register() {
       }
 
       const { confirmPassword, ...formData } = localFormData;
-      await authService.sendVerificationCode(formData.email);
+      const verificationResponse = await authService.sendVerificationCode(
+        formData.email,
+      );
       setFormData({
         formData: formData,
+        demoVerificationCode: verificationResponse.verification_code,
       });
       router.push(
         `/verify-email?email=${encodeURIComponent(localFormData.email)}`,
