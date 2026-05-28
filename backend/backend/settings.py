@@ -223,7 +223,6 @@ NOMINATIM_USER_AGENT = os.getenv(
 )
 NOMINATIM_TIMEOUT = int(os.getenv("NOMINATIM_TIMEOUT", "5"))
 
-
 CORS_ALLOW_METHODS = (
     "DELETE",
     "GET",

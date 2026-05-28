@@ -1,9 +1,35 @@
 from django.contrib.auth.models import Group
 from django.contrib.auth.password_validation import validate_password
+from django.utils import timezone
 from rest_framework import serializers
 
-from .models import User
+from .models import EmailVerificationCode, User
 from .roles import ROLE_CITIZEN
+
+
+class SendVerificationCodeSerializer(serializers.Serializer):
+    email = serializers.EmailField(required=True)
+
+    def validate_email(self, value):
+        normalized_email = User.objects.normalize_email(value)
+        if User.objects.filter(email__iexact=normalized_email).exists():
+            raise serializers.ValidationError(
+                "Пользователь с таким email уже зарегистрирован."
+            )
+        return normalized_email
+
+
+class VerifyEmailCodeSerializer(serializers.Serializer):
+    email = serializers.EmailField(required=True)
+    code = serializers.CharField(required=True, min_length=6, max_length=6)
+
+    def validate_email(self, value):
+        return User.objects.normalize_email(value)
+
+    def validate_code(self, value):
+        if not value.isdigit():
+            raise serializers.ValidationError("Код должен состоять из 6 цифр.")
+        return value
 
 
 class UserRegistrationSerializer(serializers.ModelSerializer):
@@ -25,13 +51,27 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
 
     def validate_email(self, value):
         """
-        Check if the email is already taken.
+        Check if the email is already taken and confirmed.
         """
-        # Normalize email before checking uniqueness (optional but good practice)
         normalized_email = User.objects.normalize_email(value)
-        if User.objects.filter(email=normalized_email).exists():
-            raise serializers.ValidationError("A user with that email already exists.")
-        return normalized_email  # Return normalized email
+        if User.objects.filter(email__iexact=normalized_email).exists():
+            raise serializers.ValidationError(
+                "Пользователь с таким email уже зарегистрирован."
+            )
+
+        verified_code = (
+            EmailVerificationCode.objects.filter(
+                email__iexact=normalized_email,
+                is_used=True,
+                expires_at__gt=timezone.now(),
+            )
+            .order_by("-created_at")
+            .first()
+        )
+        if not verified_code:
+            raise serializers.ValidationError("Email не подтверждён.")
+
+        return normalized_email
 
     def create(self, validated_data):
         """
