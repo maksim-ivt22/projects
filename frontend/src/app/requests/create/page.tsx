@@ -25,24 +25,24 @@ import { Textarea } from "../../../components/ui/textarea";
 import { CreateTicketInput } from "../../../lib/types/tickets/create-ticket-input";
 import { Label } from "../../../components/ui/label";
 import { AspectRatio } from "../../../components/ui/aspect-ratio";
+import { useAuth } from "../../../context/auth-context";
 
 const CreateTicketContent = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { isLoading: isAuthLoading, user } = useAuth();
 
-  const initLongitude = searchParams.get("longitude");
-  const initLatitude = searchParams.get("latitude");
-  const address = searchParams.get("address");
+  const initLongitude = searchParams.get("longitude") ?? "";
+  const initLatitude = searchParams.get("latitude") ?? "";
+  const address = searchParams.get("address") ?? "";
 
   const [categories, setCategories] = useState<TicketCategory[]>([]);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [filePreview, setFilePreview] = useState<string | null>(null);
   const [baseFormData, setBaseFormData] = useState({
     title: "",
-    address: address ?? "",
+    address,
     description: "",
-    latitude: initLatitude ?? "",
-    longitude: initLongitude ?? "",
   });
   const [currentCategory, setCurrentCategory] = useState("");
   const [currentType, setCurrentType] = useState("");
@@ -61,7 +61,9 @@ const CreateTicketContent = () => {
         setLoadingError("Категории пока не добавлены");
       }
     } catch {
-      setLoadingError("Не удалось загрузить категории. Попробуйте обновить страницу.");
+      setLoadingError(
+        "Не удалось загрузить категории. Попробуйте обновить страницу.",
+      );
       setCategories([]);
     }
   };
@@ -107,9 +109,16 @@ const CreateTicketContent = () => {
   }, []);
 
   useEffect(() => {
+    setBaseFormData((currentData) => ({
+      ...currentData,
+      address,
+    }));
+  }, [address]);
+
+  useEffect(() => {
     if (currentCategory !== "") {
       const selectedCategory = categories.find(
-        (category) => category.title === currentCategory
+        (category) => category.title === currentCategory,
       );
 
       if (selectedCategory) {
@@ -121,19 +130,48 @@ const CreateTicketContent = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitError(null);
+
+    if (isAuthLoading) {
+      setSubmitError(
+        "Проверяем авторизацию. Попробуйте ещё раз через несколько секунд.",
+      );
+      return;
+    }
+
+    if (!user) {
+      setSubmitError("Необходимо войти в аккаунт");
+      return;
+    }
+
+    const latitude = Number(initLatitude);
+    const longitude = Number(initLongitude);
+
+    if (
+      !initLatitude ||
+      !initLongitude ||
+      !Number.isFinite(latitude) ||
+      !Number.isFinite(longitude)
+    ) {
+      setSubmitError(
+        "Координаты не определены. Вернитесь на карту и выберите точку.",
+      );
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
       const selectedType = types.find((type) => type.title === currentType);
 
       if (!selectedType) {
-        throw new Error("Выберите тип заявки");
+        setSubmitError("Выберите тип заявки");
+        return;
       }
 
       const data: CreateTicketInput = {
         ...baseFormData,
-        latitude: Number(baseFormData.latitude),
-        longitude: Number(baseFormData.longitude),
+        latitude,
+        longitude,
         typeId: selectedType.id,
         image: selectedFile || undefined,
       };
@@ -142,7 +180,7 @@ const CreateTicketContent = () => {
       router.replace(`/requests/${newTicket.id}`);
     } catch {
       setSubmitError(
-        "Не удалось создать заявку. Проверьте введённые данные и попробуйте ещё раз."
+        "Не удалось создать заявку. Проверьте введённые данные и попробуйте ещё раз.",
       );
     } finally {
       setIsSubmitting(false);
@@ -162,6 +200,12 @@ const CreateTicketContent = () => {
       </div>
 
       <form onSubmit={handleSubmit} className="px-4 space-y-3">
+        {!isAuthLoading && !user && (
+          <div className="rounded-md bg-red-50 p-3 text-sm text-destructive">
+            Необходимо войти в аккаунт
+          </div>
+        )}
+
         <div>
           <Label className="text-sm">Заголовок</Label>
           <Input
@@ -193,38 +237,6 @@ const CreateTicketContent = () => {
             value={baseFormData.description}
             onChange={(e) =>
               setBaseFormData({ ...baseFormData, description: e.target.value })
-            }
-          />
-        </div>
-
-        <div>
-          <Label className="text-sm">Широта</Label>
-          <Input
-            required
-            type="number"
-            step="0.0000000000001"
-            min={-180}
-            max={180}
-            placeholder="129.705278"
-            value={baseFormData.longitude}
-            onChange={(e) =>
-              setBaseFormData({ ...baseFormData, longitude: e.target.value })
-            }
-          />
-        </div>
-
-        <div>
-          <Label className="text-sm">Высота</Label>
-          <Input
-            required
-            type="number"
-            step="0.0000000000001"
-            min={-90}
-            max={90}
-            placeholder="62.016720"
-            value={baseFormData.latitude}
-            onChange={(e) =>
-              setBaseFormData({ ...baseFormData, latitude: e.target.value })
             }
           />
         </div>
@@ -305,7 +317,7 @@ const CreateTicketContent = () => {
                       value={category.title}
                       onSelect={(currentValue) => {
                         setCurrentCategory(
-                          currentValue === currentCategory ? "" : currentValue
+                          currentValue === currentCategory ? "" : currentValue,
                         );
                       }}
                     >
@@ -343,7 +355,7 @@ const CreateTicketContent = () => {
                       value={type.title}
                       onSelect={(currentValue) => {
                         setCurrentType(
-                          currentValue === currentType ? "" : currentValue
+                          currentValue === currentType ? "" : currentValue,
                         );
                       }}
                     >
@@ -364,7 +376,9 @@ const CreateTicketContent = () => {
 
         <Button
           className="w-full mt-5"
-          disabled={isSubmitting || currentCategory === "" || currentType === ""}
+          disabled={
+            isSubmitting || currentCategory === "" || currentType === ""
+          }
         >
           {isSubmitting ? "Создание..." : "Создать"}
         </Button>

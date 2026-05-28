@@ -62,3 +62,25 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     def __str__(self):
         return self.email
+
+
+class EmailVerificationCode(models.Model):
+    email = models.EmailField(verbose_name="email address")
+    code = models.CharField(max_length=6)
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField()
+    is_used = models.BooleanField(default=False)
+
+    class Meta:
+        verbose_name = "Код подтверждения email"
+        verbose_name_plural = "Коды подтверждения email"
+        indexes = [
+            models.Index(fields=["email", "is_used", "-created_at"]),
+        ]
+
+    def __str__(self):
+        return f"{self.email} - {self.code}"
+
+    @property
+    def is_expired(self):
+        return self.expires_at <= timezone.now()

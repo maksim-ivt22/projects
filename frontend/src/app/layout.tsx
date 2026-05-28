@@ -1,15 +1,7 @@
 import type { Metadata } from "next";
-import { Onest } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "../components/layout/auth-provider";
 import { RegisterFormStoreProvider } from "../providers/register-form-store-provider";
-
-const onest = Onest({
-  variable: "--font-onest",
-  subsets: ["latin", "cyrillic"],
-  display: "swap",
-  fallback: ["system-ui", "Arial"],
-});
 
 export const metadata: Metadata = {
   title: "Create Next App",
@@ -23,7 +15,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ru">
-      <body className={`${onest.variable} antialiased`}>
+      <body className="antialiased">
         <RegisterFormStoreProvider>
           <AuthProvider>{children}</AuthProvider>
         </RegisterFormStoreProvider>

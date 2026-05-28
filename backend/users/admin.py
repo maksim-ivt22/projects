@@ -7,7 +7,7 @@ from django.utils.translation import gettext_lazy as _
 from django.contrib.auth.models import Group
 from unfold.admin import ModelAdmin
 
-from .models import User
+from .models import EmailVerificationCode, User
 from .forms import CustomUserCreationForm, CustomUserChangeForm
 
 admin.site.unregister(Group)
@@ -78,3 +78,11 @@ class UserAdmin(BaseUserAdmin, ModelAdmin):
 @admin.register(Group)
 class GroupAdmin(BaseGroupAdmin, ModelAdmin):
     pass
+
+
+@admin.register(EmailVerificationCode)
+class EmailVerificationCodeAdmin(ModelAdmin):
+    list_display = ("email", "code", "created_at", "expires_at", "is_used")
+    list_filter = ("is_used", "created_at", "expires_at")
+    search_fields = ("email", "code")
+    readonly_fields = ("created_at",)

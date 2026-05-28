@@ -5,7 +5,9 @@ import Link from "next/link";
 import { regions, getCitiesByRegion } from "@/lib/regions-data";
 import { Input } from "../../../components/input";
 import { Button } from "../../../components/ui/button";
+import { getApiErrorMessage } from "../../../lib/api/error-utils";
 import { useRegisterFormStore } from "../../../providers/register-form-store-provider";
+import authService from "../../../services/auth-service";
 
 export default function Register() {
   const router = useRouter();
@@ -45,14 +47,15 @@ export default function Register() {
       }
 
       const { confirmPassword, ...formData } = localFormData;
+      await authService.sendVerificationCode(formData.email);
       setFormData({
         formData: formData,
       });
       router.push(
-        `/verify-email?email=${encodeURIComponent(localFormData.email)}`
+        `/verify-email?email=${encodeURIComponent(localFormData.email)}`,
       );
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Неизвестная ошибка");
+      setError(getApiErrorMessage(err));
     } finally {
       setIsLoading(false);
     }
@@ -228,7 +231,7 @@ export default function Register() {
             isLoading ? "bg-gray-400" : "bg-primary"
           }`}
         >
-          {isLoading ? "Регистрация..." : "Зарегистрироваться"}
+          {isLoading ? "Отправка кода..." : "Зарегистрироваться"}
         </Button>
       </form>
 

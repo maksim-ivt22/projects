@@ -9,7 +9,7 @@ class TicketsService {
   private appendIfDefined(
     params: URLSearchParams,
     key: string,
-    value: string | number | undefined
+    value: string | number | undefined,
   ) {
     if (value !== undefined && value !== "") {
       params.append(key, String(value));
@@ -33,13 +33,7 @@ class TicketsService {
       formData.append("image", input.image);
     }
 
-    const ticket: Ticket = (
-      await api.post("tickets/", formData, {
-        headers: {
-          "Content-Type": "multipart/form-data",
-        },
-      })
-    ).data;
+    const ticket: Ticket = (await api.post("tickets/", formData)).data;
     return ticket;
   }
 
