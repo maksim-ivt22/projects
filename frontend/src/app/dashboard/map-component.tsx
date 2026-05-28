@@ -1,5 +1,6 @@
 "use client";
-
+import "leaflet/dist/leaflet.css";
+import L from "leaflet";
 import { LatLngTuple } from "leaflet";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
@@ -14,6 +15,16 @@ import { Icon } from "@iconify/react";
 import { Button } from "../../components/ui/button";
 import Link from "next/link";
 import { cn } from "../../lib/utils";
+import markerIcon2x from "leaflet/dist/images/marker-icon-2x.png";
+import markerIcon from "leaflet/dist/images/marker-icon.png";
+import markerShadow from "leaflet/dist/images/marker-shadow.png";
+delete (L.Icon.Default.prototype as any)._getIconUrl;
+
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: markerIcon2x.src,
+  iconUrl: markerIcon.src,
+  shadowUrl: markerShadow.src,
+});
 
 const MapComponent = ({ className }: { className?: string }) => {
   const [street, setStreet] = useState("");
