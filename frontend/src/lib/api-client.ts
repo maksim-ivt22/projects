@@ -26,14 +26,15 @@ api.interceptors.request.use(
       const requestUrl = `${config.baseURL || ""}${config.url || ""}`;
       console.info(`[api] ${method} ${requestUrl}`);
     }
-    if (token && config.headers) {
+    if (token) {
+      config.headers = config.headers ?? {};
       config.headers["Authorization"] = `Bearer ${token}`;
     }
     return config;
   },
   (error) => {
     return Promise.reject(error);
-  }
+  },
 );
 
 let isRefreshing = false;
@@ -121,7 +122,7 @@ api.interceptors.response.use(
 
     // For other errors, just reject
     return Promise.reject(error);
-  }
+  },
 );
 
 export default api;
