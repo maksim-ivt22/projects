@@ -1,5 +1,6 @@
 "use client";
 
+import { Suspense, useEffect, useLayoutEffect, useState } from "react";
 import { ChevronLeft, UploadCloud } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Input } from "../../../components/input";
@@ -17,7 +18,6 @@ import {
   CommandItem,
   CommandList,
 } from "../../../components/ui/command";
-import { useEffect, useLayoutEffect, useState } from "react";
 import { TicketCategory } from "../../../lib/types/tickets/ticket-category";
 import { TicketType } from "../../../lib/types/tickets/ticket-type";
 import ticketsService from "../../../services/tickets-service";
@@ -26,11 +26,14 @@ import { CreateTicketInput } from "../../../lib/types/tickets/create-ticket-inpu
 import { Label } from "../../../components/ui/label";
 import { AspectRatio } from "../../../components/ui/aspect-ratio";
 
-const CreateTicketPage = () => {
+const CreateTicketContent = () => {
   const router = useRouter();
-  const initLongitude = useSearchParams().get("longitude");
-  const initLatitude = useSearchParams().get("latitude");
-  const address = useSearchParams().get("address");
+  const searchParams = useSearchParams();
+
+  const initLongitude = searchParams.get("longitude");
+  const initLatitude = searchParams.get("latitude");
+  const address = searchParams.get("address");
+
   const [categories, setCategories] = useState<TicketCategory[]>([]);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [filePreview, setFilePreview] = useState<string | null>(null);
@@ -76,15 +79,17 @@ const CreateTicketPage = () => {
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
+
     if (file) {
       setSelectedFile(file);
 
-      // Create preview for images
       if (file.type.startsWith("image/")) {
         const reader = new FileReader();
+
         reader.onload = (event) => {
           setFilePreview(event.target?.result as string);
         };
+
         reader.readAsDataURL(file);
       } else {
         setFilePreview(null);
@@ -117,14 +122,22 @@ const CreateTicketPage = () => {
     e.preventDefault();
     setSubmitError(null);
     setIsSubmitting(true);
+
     try {
+      const selectedType = types.find((type) => type.title === currentType);
+
+      if (!selectedType) {
+        throw new Error("Выберите тип заявки");
+      }
+
       const data: CreateTicketInput = {
         ...baseFormData,
         latitude: Number(baseFormData.latitude),
         longitude: Number(baseFormData.longitude),
-        typeId: types.find((type) => type.title === currentType)!.id,
+        typeId: selectedType.id,
         image: selectedFile || undefined,
       };
+
       const newTicket = await ticketsService.createTicket(data);
       router.replace(`/requests/${newTicket.id}`);
     } catch {
@@ -147,6 +160,7 @@ const CreateTicketPage = () => {
           <h1>Заявка</h1>
         </button>
       </div>
+
       <form onSubmit={handleSubmit} className="px-4 space-y-3">
         <div>
           <Label className="text-sm">Заголовок</Label>
@@ -159,6 +173,7 @@ const CreateTicketPage = () => {
             }
           />
         </div>
+
         <div>
           <Label className="text-sm">Улица</Label>
           <Input
@@ -170,6 +185,7 @@ const CreateTicketPage = () => {
             }
           />
         </div>
+
         <div>
           <Label className="text-sm">Подробности</Label>
           <Textarea
@@ -180,6 +196,7 @@ const CreateTicketPage = () => {
             }
           />
         </div>
+
         <div>
           <Label className="text-sm">Широта</Label>
           <Input
@@ -195,6 +212,7 @@ const CreateTicketPage = () => {
             }
           />
         </div>
+
         <div>
           <Label className="text-sm">Высота</Label>
           <Input
@@ -228,6 +246,7 @@ const CreateTicketPage = () => {
                   {selectedFile ? selectedFile.name : "PNG, JPG (макс. 5MB)"}
                 </p>
               </div>
+
               <input
                 id="dropzone-file"
                 type="file"
@@ -247,6 +266,7 @@ const CreateTicketPage = () => {
                   className="w-full h-full object-cover rounded-lg"
                 />
               </AspectRatio>
+
               <button
                 type="button"
                 onClick={removeFile}
@@ -259,17 +279,20 @@ const CreateTicketPage = () => {
         </div>
 
         <Label className="text-sm">Категория</Label>
+
         {loadingError && (
           <p className="text-sm text-destructive mb-2" role="alert">
             {loadingError}
           </p>
         )}
+
         <Popover>
           <PopoverTrigger asChild>
-            <Button variant={"outline"} className="w-full justify-start">
+            <Button variant="outline" className="w-full justify-start">
               {currentCategory !== "" ? currentCategory : "Выберите категорию"}
             </Button>
           </PopoverTrigger>
+
           <PopoverContent>
             <Command>
               <CommandInput placeholder="Найдите категорию" />
@@ -296,16 +319,18 @@ const CreateTicketPage = () => {
         </Popover>
 
         <Label className="text-sm">Тип</Label>
+
         <Popover>
           <PopoverTrigger asChild>
             <Button
               disabled={currentCategory === ""}
-              variant={"outline"}
+              variant="outline"
               className="w-full justify-start"
             >
               {currentType !== "" ? currentType : "Выберите тип"}
             </Button>
           </PopoverTrigger>
+
           <PopoverContent>
             <Command>
               <CommandInput placeholder="Найдите тип" />
@@ -348,4 +373,10 @@ const CreateTicketPage = () => {
   );
 };
 
-export default CreateTicketPage;
+export default function CreateTicketPage() {
+  return (
+    <Suspense fallback={<div>Загрузка...</div>}>
+      <CreateTicketContent />
+    </Suspense>
+  );
+}

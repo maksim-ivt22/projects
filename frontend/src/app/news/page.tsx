@@ -2,6 +2,9 @@ import { ArticleCard } from "@/components/news-card";
 import { Navbar } from "@/components/navbar";
 import newsService from "../../services/news-service";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export default async function NewsPage() {
   const articles = (await newsService.getArticles()).results;
 

@@ -1,0 +1,6 @@
+.env
+.env.prod
+*.pem
+certbot/
+letsencrypt/
+node_modules/

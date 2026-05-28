@@ -1,14 +1,19 @@
 "use client";
+
+import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useState } from "react";
 import { useRegisterFormStore } from "../../../providers/register-form-store-provider";
 import { useAuth } from "../../../context/auth-context";
 
-export default function VerifyEmail() {
+function VerifyEmailContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+
   const { formData } = useRegisterFormStore((state) => state);
   const { register, login } = useAuth();
-  const email = useSearchParams().get("email");
+
+  const email = searchParams.get("email");
+
   const [code, setCode] = useState(["", "", "", "", "", ""]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
@@ -19,7 +24,6 @@ export default function VerifyEmail() {
       newCode[index] = value;
       setCode(newCode);
 
-      // Автопереход между полями
       if (value && index < 5) {
         const nextInput = document.getElementById(
           `code-${index + 1}`
@@ -45,6 +49,7 @@ export default function VerifyEmail() {
         email: formData.email,
         password: formData.password,
       });
+
       await login({
         email: formData.email,
         password: formData.password,
@@ -54,6 +59,7 @@ export default function VerifyEmail() {
     } catch (err) {
       setError(err instanceof Error ? err.message : "Неизвестная ошибка");
       setCode(["", "", "", "", "", ""]);
+
       const firstInput = document.getElementById("code-0") as HTMLInputElement;
       firstInput?.focus();
     } finally {
@@ -83,6 +89,7 @@ export default function VerifyEmail() {
             />
           </svg>
         </button>
+
         <h1 className="text-2xl font-bold text-gray-800">
           Подтверждение email
         </h1>
@@ -122,5 +129,13 @@ export default function VerifyEmail() {
         </button>
       </form>
     </div>
+  );
+}
+
+export default function VerifyEmail() {
+  return (
+    <Suspense fallback={<div>Загрузка...</div>}>
+      <VerifyEmailContent />
+    </Suspense>
   );
 }

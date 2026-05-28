@@ -35,6 +35,6 @@ export const createRegisterFormStore = (
 ) => {
   return createStore<RegisterFormStore>()((set) => ({
     ...initState,
-    setFormData: (data: RegisterFormState) => set((_) => data),
+    setFormData: (data: RegisterFormState) => set(() => data),
   }));
 };

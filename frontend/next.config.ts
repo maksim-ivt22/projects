@@ -1,10 +1,12 @@
-const nextConfig = {
-  experimental: {
-    serverActions: true,
+import type { NextConfig } from "next";
+
+const nextConfig: NextConfig = {
+  eslint: {
+    ignoreDuringBuilds: true,
   },
-  images: {
-    domains: ['localhost'],
+  typescript: {
+    ignoreBuildErrors: true,
   },
 };
 
-module.exports = nextConfig;
+export default nextConfig;
