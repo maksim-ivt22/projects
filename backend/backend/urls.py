@@ -8,6 +8,7 @@ from patches import routers
 from users.urls import auth_urlpatterns, router as users_router
 from news.urls import router as news_router
 from tickets.urls import router as tickets_router, ticket_category_urlpatterns
+from backend.views import reverse_geocode
 
 router = routers.DefaultRouter()
 router.extend(users_router)
@@ -23,6 +24,7 @@ urlpatterns = [
         name="swagger-ui",
     ),
     path("api-auth/", include("rest_framework.urls", namespace="rest_framework")),
+    path("geo/reverse/", reverse_geocode, name="geo-reverse"),
     path("tickets/", include("tickets.urls", namespace="tickets")),
     path("auth/", include((auth_urlpatterns, "auth"), namespace="auth")),
     path(
